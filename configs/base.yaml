@@ -1,0 +1,77 @@
+model:
+  name: "Qwen/Qwen3-ASR-1.7B"
+  trust_remote_code: true
+  torch_dtype: "bfloat16"
+  attn_implementation: "flash_attention_2"
+
+lora:
+  enabled: true
+  rank: 64
+  alpha: 128
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+  bias: "none"
+  task_type: "CAUSAL_LM"
+
+freeze:
+  freeze_audio_encoder: true
+  freeze_embeddings: true
+  freeze_lm_head: false
+
+data:
+  train_jsonl: "data/processed/train.jsonl"
+  val_jsonl: "data/processed/val.jsonl"
+  max_audio_duration: 30.0
+  min_audio_duration: 0.5
+  sample_rate: 16000
+  max_text_length: 512
+  num_workers: 4
+
+training:
+  output_dir: "outputs/base"
+  num_train_epochs: 3
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 16
+  learning_rate: 2e-4
+  weight_decay: 0.01
+  warmup_ratio: 0.02
+  lr_scheduler_type: "cosine"
+  bf16: true
+  gradient_checkpointing: true
+  logging_steps: 10
+  save_steps: 500
+  eval_steps: 500
+  eval_strategy: "steps"
+  save_total_limit: 5
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_wer"
+  greater_is_better: false
+  dataloader_num_workers: 4
+  dataloader_pin_memory: true
+  remove_unused_columns: false
+  report_to: "wandb"
+  seed: 42
+  max_grad_norm: 1.0
+
+wandb:
+  project: "qwen-asr-vi"
+  tags:
+    - "qwen3-asr"
+    - "vietnamese"
+    - "lora"
+
+eval:
+  benchmarks:
+    - "vivos"
+    - "fleurs_vi"
+  batch_size: 1
+  num_beams: 1
+  max_new_tokens: 512

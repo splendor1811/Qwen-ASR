@@ -1,0 +1,37 @@
+_base_: base.yaml
+
+data:
+  train_jsonl: "data/processed/phase1_train.jsonl"
+  val_jsonl: "data/processed/phase1_val.jsonl"
+  max_audio_duration: 30.0
+
+training:
+  output_dir: "outputs/phase1_large_sft"
+  num_train_epochs: 2
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 32
+  learning_rate: 2e-4
+  warmup_ratio: 0.03
+  save_steps: 1000
+  eval_steps: 1000
+  save_total_limit: 3
+  deepspeed: "src/training/deepspeed_configs/zero2.json"
+
+lora:
+  rank: 64
+  alpha: 128
+  dropout: 0.05
+
+wandb:
+  name: "phase1-large-sft"
+  tags:
+    - "qwen3-asr"
+    - "vietnamese"
+    - "lora"
+    - "phase1"
+    - "large-sft"
+
+eval:
+  benchmarks:
+    - "vivos"
+    - "fleurs_vi"

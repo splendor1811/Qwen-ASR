@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+.venv/
+venv/
+.python-version
+
+# Data
+data/
+*.wav
+*.mp3
+*.flac
+
+# Model checkpoints
+outputs/
+checkpoints/
+*.safetensors
+*.bin
+*.pt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Weights & Biases
+wandb/
+
+# Misc
+*.log
+.cache/

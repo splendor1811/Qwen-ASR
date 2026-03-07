@@ -1,0 +1,37 @@
+_base_: base.yaml
+
+data:
+  train_jsonl: "data/processed/phase2_train.jsonl"
+  val_jsonl: "data/processed/phase2_val.jsonl"
+  max_audio_duration: 30.0
+
+training:
+  output_dir: "outputs/phase2_domain_adapt"
+  num_train_epochs: 5
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
+  learning_rate: 5e-5
+  warmup_ratio: 0.05
+  save_steps: 500
+  eval_steps: 500
+  save_total_limit: 5
+  deepspeed: "src/training/deepspeed_configs/zero2.json"
+
+lora:
+  rank: 64
+  alpha: 128
+  dropout: 0.03
+
+wandb:
+  name: "phase2-domain-adapt"
+  tags:
+    - "qwen3-asr"
+    - "vietnamese"
+    - "lora"
+    - "phase2"
+    - "domain-adapt"
+
+eval:
+  benchmarks:
+    - "vivos"
+    - "fleurs_vi"

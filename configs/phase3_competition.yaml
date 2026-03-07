@@ -1,0 +1,40 @@
+_base_: base.yaml
+
+data:
+  train_jsonl: "data/processed/phase3_train.jsonl"
+  val_jsonl: "data/processed/phase3_val.jsonl"
+  max_audio_duration: 25.0
+
+training:
+  output_dir: "outputs/phase3_competition"
+  num_train_epochs: 10
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 1e-5
+  warmup_ratio: 0.1
+  lr_scheduler_type: "cosine"
+  save_steps: 200
+  eval_steps: 200
+  save_total_limit: 10
+  load_best_model_at_end: true
+  deepspeed: "src/training/deepspeed_configs/zero2.json"
+
+lora:
+  rank: 128
+  alpha: 256
+  dropout: 0.02
+
+wandb:
+  name: "phase3-competition"
+  tags:
+    - "qwen3-asr"
+    - "vietnamese"
+    - "lora"
+    - "phase3"
+    - "competition"
+
+eval:
+  benchmarks:
+    - "vivos"
+    - "fleurs_vi"
+    - "vlsp2020"
