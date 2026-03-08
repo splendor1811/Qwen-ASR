@@ -60,13 +60,14 @@ class DataCollatorForQwen3ASRFinetune:
             audio = load_audio(audio_path, self.sample_rate)
 
             # Process audio through the processor to get audio features
-            audio_inputs = self.processor.audio_processor(
+            audio_inputs = self.processor.feature_extractor(
                 [audio],
                 sampling_rate=self.sample_rate,
+                return_attention_mask=True,
                 return_tensors="pt",
             )
             audio_feats = audio_inputs["input_features"].squeeze(0)
-            audio_feat_len = audio_inputs["feature_attention_mask"].sum(-1).squeeze(0)
+            audio_feat_len = audio_inputs["attention_mask"].sum(-1).squeeze(0)
 
             # Tokenize the prefix (chat template)
             prefix_tokens = tokenizer.encode(ASR_CHAT_TEMPLATE, add_special_tokens=False)

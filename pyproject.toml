@@ -21,6 +21,7 @@ dependencies = [
     "librosa",
     "soundfile",
     "pyyaml",
+    "setuptools>=82.0.0",
 ]
 
 [project.optional-dependencies]

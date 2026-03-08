@@ -37,6 +37,13 @@ def parse_args():
     return parser.parse_args()
 
 
+def preprocess_logits_for_metrics(logits, labels):
+    """Argmax logits to token IDs before storing (avoids OOM from full vocab logits)."""
+    if isinstance(logits, tuple):
+        logits = logits[0]
+    return logits.argmax(dim=-1)
+
+
 def build_compute_metrics(processor):
     """Build a compute_metrics function for the Trainer."""
     tokenizer = processor.tokenizer
@@ -44,8 +51,10 @@ def build_compute_metrics(processor):
     def compute_metrics_fn(eval_preds):
         pred_ids, label_ids = eval_preds
 
-        # Replace -100 with pad token for decoding
-        label_ids[label_ids == -100] = tokenizer.pad_token_id or 0
+        # Replace -100 padding with pad token for decoding
+        pad_id = tokenizer.pad_token_id or 0
+        pred_ids[pred_ids == -100] = pad_id
+        label_ids[label_ids == -100] = pad_id
 
         predictions = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
         references = tokenizer.batch_decode(label_ids, skip_special_tokens=True)
@@ -89,8 +98,14 @@ def main():
     logger.info("Applying LoRA...")
     model = apply_lora(model, config.lora)
 
-    # Enable gradient checkpointing
+    # Tell Trainer to ignore rope_deltas in eval predictions (otherwise it breaks metric collection)
+    model.config.keys_to_ignore_at_inference = ["past_key_values", "rope_deltas"]
+
+    # Enable gradient checkpointing (inputs need requires_grad=True for LoRA)
     if config.training.gradient_checkpointing:
+        def _make_inputs_require_grad(module, input, output):
+            output.requires_grad_(True)
+        model.get_base_model().thinker.get_input_embeddings().register_forward_hook(_make_inputs_require_grad)
         model.gradient_checkpointing_enable(
             gradient_checkpointing_kwargs={"use_reentrant": False}
         )
@@ -155,6 +170,7 @@ def main():
         max_grad_norm=config.training.max_grad_norm,
         deepspeed=config.training.deepspeed,
         ddp_find_unused_parameters=config.training.ddp_find_unused_parameters,
+        label_names=["labels"],
     )
 
     # Callbacks
@@ -164,12 +180,15 @@ def main():
     ]
 
     # Create trainer
+    compute_metrics_fn = build_compute_metrics(processor) if val_dataset else None
     trainer = Qwen3ASRTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         data_collator=collator,
+        compute_metrics=compute_metrics_fn,
+        preprocess_logits_for_metrics=preprocess_logits_for_metrics if val_dataset else None,
         callbacks=callbacks,
     )
 

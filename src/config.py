@@ -136,11 +136,24 @@ def _resolve_env_vars(data: dict) -> dict:
 
 
 def _dataclass_from_dict(cls, data: dict):
-    """Create a dataclass instance from a dict, ignoring extra keys."""
+    """Create a dataclass instance from a dict, coercing types and ignoring extra keys."""
     import dataclasses
 
-    field_names = {f.name for f in dataclasses.fields(cls)}
-    filtered = {k: v for k, v in data.items() if k in field_names}
+    fields_by_name = {f.name: f for f in dataclasses.fields(cls)}
+    filtered = {}
+    for k, v in data.items():
+        if k not in fields_by_name:
+            continue
+        # Coerce basic scalar types (annotations are strings due to __future__.annotations)
+        if v is not None:
+            ft = fields_by_name[k].type
+            if ft == "float" and not isinstance(v, float):
+                v = float(v)
+            elif ft == "int" and not isinstance(v, (int, bool)):
+                v = int(v)
+            elif ft == "bool" and not isinstance(v, bool):
+                v = bool(v)
+        filtered[k] = v
     return cls(**filtered)
 
 
