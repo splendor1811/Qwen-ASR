@@ -79,15 +79,20 @@ JSONL files: {"audio": "/path/to/file.wav", "text": "transcription"}
     |
     v  [DataCollatorForQwen3ASRFinetune]
 Training batches:
-  - input_ids:      [<chat_prefix_tokens>, <transcription_tokens>, <eos>]
-  - labels:         [-100, -100, ..., -100,  <transcription_tokens>, <eos>]
+  - input_ids:      [<chat_prefix_tokens>, <lang_prefix + transcription_tokens>, <eos>]
+  - labels:         [-100, -100, ..., -100,  <lang_prefix + transcription_tokens>, <eos>]
   - input_features: [audio mel spectrogram features]
     |
     v  [Qwen3ASRTrainer]
 Model updates via LoRA
 ```
 
-The key insight: the chat prefix tokens (system prompt + audio placeholder) are masked with `-100` in the labels, so the model only learns to predict the transcription text - not the template itself.
+The key insight: the chat prefix tokens (system prompt + audio placeholder) are masked with `-100` in the labels. The language prefix (`language Vietnamese<asr_text>`) and the transcription are both supervised — the model learns to predict the language tag and the transcription, but not the chat template.
+
+**Language prefix** (per Qwen3-ASR finetuning guide):
+- The collator automatically wraps your text as: `language Vietnamese<asr_text>your transcription`
+- Configurable via `data.language_prefix` in your config YAML (default: `"Vietnamese"`)
+- Set to `"None"` if you don't have language info (model won't learn language detection)
 
 ---
 
@@ -178,13 +183,12 @@ uv run huggingface-cli login --token $(grep HF_TOKEN .env | cut -d= -f2)
 |---|---|---|---|---|
 | **VIVOS** | ~15h | `AILAB-VNUHCM/vivos` | Open | Testing pipeline, evaluation |
 | **FLEURS-Vi** | ~12h | `google/fleurs` (vi_vn) | Open | Evaluation benchmark |
-| **CommonVoice-Vi** | ~17h | `mozilla-foundation/common_voice_17_0` | Open | Domain diversity |
 | **VLSP2020** | ~100h | `doof-ferb/vlsp2020_vinai_100h` | Open (unofficial) | Vietnamese broadcast |
 | **VietBud500** | ~500h | `linhtran92/viet_bud500` | Open | Large-scale training |
-| **VietSuperSpeech** | ~267h | `thanhnew2001/VietSuperSpeech` | Open | Domain adaptation |
+| **VietSuperSpeech** | ~103h | `thanhnew2001/VietSuperSpeech` | Open | Domain adaptation |
 | **GigaSpeech2-Vi** | ~2000h | `speechcolab/gigaspeech2` | Gated (needs approval) | Phase 1 backbone |
-| **FOSD** | varies | `linhtran92/FOSD` | Open | Additional data |
-| **PhoAudioBook** | varies | `linhtran92/PhoAudioBook` | Open | Audiobook domain |
+| **FOSD** | ~100h | `doof-ferb/fpt_fosd` | Open | Additional data (train only) |
+| **PhoAudioBook** | ~1500h | `thivux/phoaudiobook` | Gated (needs agreement) | Audiobook domain |
 
 ### Start Small: Download VIVOS First
 
@@ -200,7 +204,7 @@ This downloads from HuggingFace and caches locally. First download may take a fe
 
 ```bash
 # Download several datasets at once
-uv run python scripts/download_datasets.py --datasets vivos fleurs common_voice vlsp
+uv run python scripts/download_datasets.py --datasets vivos fleurs vlsp
 
 # Download everything (warning: GigaSpeech2 is ~2TB, takes hours)
 uv run python scripts/download_datasets.py --datasets all
@@ -240,8 +244,10 @@ head -3 data/processed/vivos_train.jsonl
 
 Each line looks like:
 ```json
-{"audio": "/absolute/path/to/data/raw/vivos/train/train_000000.wav", "text": "MỘT CÂU NÓI TIẾNG VIỆT"}
+{"audio": "/absolute/path/to/data/raw/vivos/train/VIVOSSPK01_001.wav", "text": "MỘT CÂU NÓI TIẾNG VIỆT"}
 ```
+
+> **Note**: The JSONL stores plain transcription text. The language prefix (`language Vietnamese<asr_text>`) is added automatically by the data collator at training time.
 
 Check file counts:
 ```bash
@@ -256,7 +262,7 @@ When you're ready for real training, process multiple datasets and merge them in
 
 ```bash
 # Process and merge into data/processed/train.jsonl and data/processed/test.jsonl
-uv run python scripts/prepare_data.py --datasets vivos vlsp fleurs common_voice --merge
+uv run python scripts/prepare_data.py --datasets vivos vlsp fleurs --merge
 ```
 
 The `--merge` flag combines all individual `*_train.jsonl` files into a unified `train.jsonl` (and same for test/val splits). This merged file is what the training config points to by default.
@@ -500,8 +506,8 @@ uv run python scripts/download_datasets.py --datasets vivos
 uv run python scripts/prepare_data.py --datasets vivos --merge
 
 # Then download the big datasets for real training
-uv run python scripts/download_datasets.py --datasets vivos vlsp vietbud500 fleurs common_voice
-uv run python scripts/prepare_data.py --datasets vivos vlsp vietbud500 fleurs common_voice --merge
+uv run python scripts/download_datasets.py --datasets vivos vlsp vietbud500 fleurs
+uv run python scripts/prepare_data.py --datasets vivos vlsp vietbud500 fleurs --merge
 ```
 
 ---
@@ -743,14 +749,14 @@ uv run python scripts/train.py --config configs/phase1_large_sft.yaml
 
 **Goal**: Adapt to specific Vietnamese speech domains (conversational, read speech).
 
-- **Data**: VietSuperSpeech (267h) + VIVOS (15h) + CommonVoice (17h) + FLEURS (12h) = ~310h
+- **Data**: VietSuperSpeech (103h) + VIVOS (15h) + FLEURS (12h) = ~130h
 - **Duration**: ~12h
 - **Cost**: ~$21
 - **LR**: 5e-5 (lower, to refine without forgetting)
 - **Start from**: Best Phase 1 checkpoint
 
 ```bash
-uv run python scripts/prepare_data.py --datasets vietsuperspeech vivos common_voice fleurs --merge
+uv run python scripts/prepare_data.py --datasets vietsuperspeech vivos fleurs --merge
 cp data/processed/train.jsonl data/processed/phase2_train.jsonl
 cp data/processed/val.jsonl data/processed/phase2_val.jsonl
 
@@ -806,6 +812,7 @@ Full pipeline:
 | `data` | `val_jsonl` | `data/processed/val.jsonl` | Validation data path |
 | `data` | `max_audio_duration` | `30.0` | Max audio length in seconds |
 | `data` | `sample_rate` | `16000` | Audio sample rate (always 16kHz) |
+| `data` | `language_prefix` | `Vietnamese` | Language tag for Qwen3-ASR (`Vietnamese`, `None`, etc.) |
 | `training` | `per_device_train_batch_size` | `1` | Batch size per GPU |
 | `training` | `gradient_accumulation_steps` | `16` | Effective batch = this * batch_size * n_gpus |
 | `training` | `learning_rate` | `2e-4` | Peak learning rate |
@@ -854,12 +861,11 @@ Qwen-ASR/
 │   │       ├── vivos.py               # VIVOS (~15h)
 │   │       ├── vlsp.py                # VLSP2020 (~100h)
 │   │       ├── fleurs.py              # FLEURS-Vi (~12h)
-│   │       ├── common_voice.py        # CommonVoice-Vi (~17h)
 │   │       ├── gigaspeech2.py         # GigaSpeech2-Vi (~2000h)
 │   │       ├── vietbud500.py          # VietBud500 (~500h)
-│   │       ├── vietsuperspeech.py     # VietSuperSpeech (~267h)
-│   │       ├── fosd.py                # FOSD
-│   │       └── phoaudiobook.py        # PhoAudioBook
+│   │       ├── vietsuperspeech.py     # VietSuperSpeech (~103h)
+│   │       ├── fosd.py                # FOSD (~100h)
+│   │       └── phoaudiobook.py        # PhoAudioBook (~1500h)
 │   ├── model/
 │   │   ├── loader.py                  # Load Qwen3-ASR model + processor
 │   │   ├── lora.py                    # Apply LoRA adapters

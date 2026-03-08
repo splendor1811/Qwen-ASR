@@ -50,6 +50,7 @@ class DataConfig:
     sample_rate: int = 16000
     max_text_length: int = 512
     num_workers: int = 4
+    language_prefix: str = "Vietnamese"
 
 
 @dataclass

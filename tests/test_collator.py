@@ -87,9 +87,10 @@ def test_collator_label_masking():
         labels = batch["labels"][0]
         prefix_len = len(tokenizer.encode(ASR_CHAT_TEMPLATE, add_special_tokens=False))
 
-        # First prefix_len tokens should be -100
+        # First prefix_len tokens (chat template) should be -100
         assert (labels[:prefix_len] == -100).all()
-        # At least some tokens after prefix should not be -100
+        # The full target includes "language Vietnamese<asr_text>xin chào" + eos
+        # so there should be non-masked tokens after the prefix
         assert (labels[prefix_len:] != -100).any()
 
     finally:

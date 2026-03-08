@@ -33,6 +33,7 @@ data:
   sample_rate: 16000
   max_text_length: 512
   num_workers: 4
+  language_prefix: "Vietnamese"
 
 training:
   output_dir: "outputs/base"

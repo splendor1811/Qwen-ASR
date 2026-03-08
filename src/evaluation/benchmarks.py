@@ -29,53 +29,37 @@ def load_benchmark(name: str, data_dir: str = "data") -> list[dict]:
 
 
 def _load_vivos_test(data_dir: str) -> list[dict]:
-    """Load VIVOS test set."""
-    # Try local JSONL first
+    """Load VIVOS test set from local JSONL (requires prepare_data.py first)."""
     jsonl_path = Path(data_dir) / "processed" / "vivos_test.jsonl"
     if jsonl_path.exists():
         return _load_from_jsonl(jsonl_path)
 
-    # Fall back to HuggingFace
-    logger.info("Loading VIVOS test from HuggingFace...")
-    ds = load_dataset("AILAB-VNUHCM/vivos", split="test", trust_remote_code=True)
-    return [
-        {
-            "audio": sample["audio"]["array"],
-            "text": sample["sentence"].strip(),
-            "sr": sample["audio"]["sampling_rate"],
-        }
-        for sample in ds
-        if sample["sentence"].strip()
-    ]
+    raise FileNotFoundError(
+        f"VIVOS test JSONL not found at {jsonl_path}. "
+        "Run 'uv run python scripts/prepare_data.py --datasets vivos' first."
+    )
 
 
 def _load_fleurs_test(data_dir: str) -> list[dict]:
-    """Load FLEURS Vietnamese test set."""
+    """Load FLEURS Vietnamese test set from local JSONL (requires prepare_data.py first)."""
     jsonl_path = Path(data_dir) / "processed" / "fleurs_test.jsonl"
     if jsonl_path.exists():
         return _load_from_jsonl(jsonl_path)
 
-    logger.info("Loading FLEURS Vietnamese test from HuggingFace...")
-    ds = load_dataset("google/fleurs", "vi_vn", split="test", trust_remote_code=True)
-    return [
-        {
-            "audio": sample["audio"]["array"],
-            "text": sample["transcription"].strip(),
-            "sr": sample["audio"]["sampling_rate"],
-        }
-        for sample in ds
-        if sample["transcription"].strip()
-    ]
+    raise FileNotFoundError(
+        f"FLEURS test JSONL not found at {jsonl_path}. "
+        "Run 'uv run python scripts/prepare_data.py --datasets fleurs' first."
+    )
 
 
 def _load_vlsp2020_test(data_dir: str) -> list[dict]:
-    """Load VLSP2020 test set (unofficial)."""
+    """Load VLSP2020 test set."""
     jsonl_path = Path(data_dir) / "processed" / "vlsp_test.jsonl"
     if jsonl_path.exists():
         return _load_from_jsonl(jsonl_path)
 
     logger.info("Loading VLSP2020 test from HuggingFace...")
-    ds = load_dataset("doof-ferb/vlsp2020_vinai_100h", split="test", trust_remote_code=True)
+    ds = load_dataset("doof-ferb/vlsp2020_vinai_100h", split="test")
     return [
         {
             "audio": sample["audio"]["array"],

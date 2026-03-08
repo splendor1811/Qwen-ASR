@@ -107,6 +107,7 @@ def main():
         processor=processor,
         sample_rate=config.data.sample_rate,
         max_text_length=config.data.max_text_length,
+        language_prefix=config.data.language_prefix,
     )
 
     # Set up W&B
