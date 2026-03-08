@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import torch
 from peft import PeftModel
-from qwen_asr import Qwen3ASRModel, Qwen3ASRProcessor
+from qwen_asr import Qwen3ASRModel
+from qwen_asr.core.transformers_backend import Qwen3ASRProcessor
 
 from src.utils.logging import setup_logging
 

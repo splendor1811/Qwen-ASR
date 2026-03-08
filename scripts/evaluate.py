@@ -36,7 +36,8 @@ def parse_args():
 
 def load_checkpoint(checkpoint_path: str, config, device: str):
     """Load model from checkpoint (LoRA or merged)."""
-    from qwen_asr import Qwen3ASRModel, Qwen3ASRProcessor
+    from qwen_asr import Qwen3ASRModel
+    from qwen_asr.core.transformers_backend import Qwen3ASRProcessor
 
     logger.info(f"Loading base model: {config.model.name}")
     qwen3_asr = Qwen3ASRModel.from_pretrained(

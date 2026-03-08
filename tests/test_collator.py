@@ -20,7 +20,7 @@ def test_collator_output_shapes():
     import soundfile as sf
 
     from src.data.collator import DataCollatorForQwen3ASRFinetune
-    from qwen_asr import Qwen3ASRProcessor
+    from qwen_asr.core.transformers_backend import Qwen3ASRProcessor
 
     processor = Qwen3ASRProcessor.from_pretrained("Qwen/Qwen3-ASR-1.7B")
     collator = DataCollatorForQwen3ASRFinetune(processor=processor)
@@ -69,7 +69,7 @@ def test_collator_label_masking():
     import soundfile as sf
 
     from src.data.collator import DataCollatorForQwen3ASRFinetune, ASR_CHAT_TEMPLATE
-    from qwen_asr import Qwen3ASRProcessor
+    from qwen_asr.core.transformers_backend import Qwen3ASRProcessor
 
     processor = Qwen3ASRProcessor.from_pretrained("Qwen/Qwen3-ASR-1.7B")
     collator = DataCollatorForQwen3ASRFinetune(processor=processor)

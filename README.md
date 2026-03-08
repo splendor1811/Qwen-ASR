@@ -470,8 +470,9 @@ source $HOME/.cargo/env  # or restart shell
 apt-get update && apt-get install -y ffmpeg libsndfile1
 
 # Install Python dependencies + flash-attn
+export FLASH_ATTN_CUDA_ARCHS="120" # Help faster building flash-attn
 cd /workspace/Qwen-ASR
-uv sync --extra train
+MAX_JOBS=4 uv sync --extra train
 
 # Install Flash Attention (critical for performance)
 uv run pip install flash-attn --no-build-isolation

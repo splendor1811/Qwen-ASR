@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 
 import torch
-from qwen_asr import Qwen3ASRModel, Qwen3ASRProcessor
+from qwen_asr import Qwen3ASRModel
+from qwen_asr.core.transformers_backend import Qwen3ASRProcessor
 
 from src.config import ModelConfig
 
