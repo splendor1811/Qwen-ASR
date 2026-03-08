@@ -45,3 +45,6 @@ select = ["E", "F", "I", "W"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.uv.extra-build-dependencies]
+flash-attn = ["torch"]
