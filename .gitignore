@@ -18,6 +18,7 @@ data/
 *.wav
 *.mp3
 *.flac
+outputs/
 
 # Model checkpoints
 outputs/

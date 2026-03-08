@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -59,7 +60,9 @@ def load_checkpoint(checkpoint_path: str, config, device: str):
         model = PeftModel.from_pretrained(model, checkpoint_path)
         model = model.merge_and_unload()
 
-    model.forward = model.thinker.forward
+    # Note: do NOT set model.forward = model.thinker.forward here.
+    # That hack is only for HF Trainer compatibility during training.
+    # For inference, model.generate() properly routes to thinker.generate().
     model = model.to(device).eval()
 
     return model, processor
@@ -76,14 +79,21 @@ def transcribe_sample(model, processor, audio, sr: int, device: str) -> str:
         {"role": "user", "content": [{"type": "audio", "audio": audio}]},
     ]
 
-    # Use processor to prepare inputs
+    # Apply chat template to get the text string the processor expects
+    text_prompt = processor.apply_chat_template(conversation, tokenize=False, add_generation_prompt=True)
+
     inputs = processor(
-        conversations=conversation,
-        audios=[audio],
+        text=text_prompt,
+        audio=[audio],
         sampling_rate=sr,
         return_tensors="pt",
     )
-    inputs = {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
+    inputs = {
+        k: v.to(device=device, dtype=torch.bfloat16) if hasattr(v, "is_floating_point") and v.is_floating_point()
+        else v.to(device=device) if hasattr(v, "to")
+        else v
+        for k, v in inputs.items()
+    }
 
     with torch.no_grad():
         generated_ids = model.generate(
@@ -94,8 +104,11 @@ def transcribe_sample(model, processor, audio, sr: int, device: str) -> str:
 
     # Decode only the generated tokens (after input)
     input_len = inputs["input_ids"].shape[1]
-    output_ids = generated_ids[:, input_len:]
+    sequences = generated_ids.sequences if hasattr(generated_ids, "sequences") else generated_ids
+    output_ids = sequences[:, input_len:]
     text = processor.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
+    # Strip model language prefix (e.g. "language Vietnamese<asr_text>")
+    text = re.sub(r"^language\s+\w+<asr_text>", "", text)
     return text.strip()
 
 
@@ -124,8 +137,9 @@ def main():
 
         references = []
         hypotheses = []
+        sample_details = []
 
-        for sample in tqdm(samples, desc=bench_name):
+        for i, sample in enumerate(tqdm(samples, desc=bench_name)):
             audio = sample.get("audio")
             text = sample["text"]
             sr = sample.get("sr", 16000)
@@ -136,13 +150,24 @@ def main():
                 hypotheses.append(prediction)
             except Exception as e:
                 logger.warning(f"Failed to transcribe sample: {e}")
+                prediction = ""
                 references.append(text)
-                hypotheses.append("")
+                hypotheses.append(prediction)
+
+            sample_details.append({"ref": text, "hyp": prediction})
+            if text != prediction:
+                logger.info(f"[{bench_name}#{i}] REF: {text}")
+                logger.info(f"[{bench_name}#{i}] HYP: {prediction}")
 
         wer_score = compute_wer(references, hypotheses)
         cer_score = compute_cer(references, hypotheses)
 
-        results[bench_name] = {"wer": wer_score, "cer": cer_score, "n_samples": len(references)}
+        results[bench_name] = {
+            "wer": wer_score,
+            "cer": cer_score,
+            "n_samples": len(references),
+            "samples": sample_details,
+        }
         logger.info(f"{bench_name}: WER={wer_score:.4f} ({wer_score*100:.2f}%), "
                      f"CER={cer_score:.4f} ({cer_score*100:.2f}%), n={len(references)}")
 
@@ -158,6 +183,7 @@ def main():
     # Save results
     if args.output_file:
         import json
+        os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
         with open(args.output_file, "w") as f:
             json.dump(results, f, indent=2)
         logger.info(f"Results saved to {args.output_file}")

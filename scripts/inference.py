@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -48,7 +49,9 @@ def load_model(base_model: str, checkpoint: str | None, device: str):
             model = model.merge_and_unload()
             logger.info(f"Loaded LoRA adapter from {checkpoint}")
 
-    model.forward = model.thinker.forward
+    # Note: do NOT set model.forward = model.thinker.forward here.
+    # That hack is only for HF Trainer compatibility during training.
+    # For inference, model.generate() properly routes to thinker.generate().
     model = model.to(device).eval()
     return model, processor
 
@@ -61,13 +64,20 @@ def transcribe(model, processor, audio_path: str, device: str) -> str:
         {"role": "user", "content": [{"type": "audio", "audio": audio}]},
     ]
 
+    text_prompt = processor.apply_chat_template(conversation, tokenize=False, add_generation_prompt=True)
+
     inputs = processor(
-        conversations=conversation,
-        audios=[audio],
+        text=text_prompt,
+        audio=[audio],
         sampling_rate=16000,
         return_tensors="pt",
     )
-    inputs = {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
+    inputs = {
+        k: v.to(device=device, dtype=torch.bfloat16) if hasattr(v, "is_floating_point") and v.is_floating_point()
+        else v.to(device=device) if hasattr(v, "to")
+        else v
+        for k, v in inputs.items()
+    }
 
     with torch.no_grad():
         generated_ids = model.generate(
@@ -77,8 +87,11 @@ def transcribe(model, processor, audio_path: str, device: str) -> str:
         )
 
     input_len = inputs["input_ids"].shape[1]
-    output_ids = generated_ids[:, input_len:]
+    sequences = generated_ids.sequences if hasattr(generated_ids, "sequences") else generated_ids
+    output_ids = sequences[:, input_len:]
     text = processor.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
+    # Strip model language prefix (e.g. "language Vietnamese<asr_text>")
+    text = re.sub(r"^language\s+\w+<asr_text>", "", text)
     return text.strip()
 
 
