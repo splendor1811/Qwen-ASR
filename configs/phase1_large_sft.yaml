@@ -9,8 +9,9 @@ data:
 training:
   output_dir: "outputs/phase1_large_sft"
   num_train_epochs: 2
-  per_device_train_batch_size: 1
-  gradient_accumulation_steps: 32
+  per_device_train_batch_size: 8
+  per_device_eval_batch_size: 8
+  gradient_accumulation_steps: 4
   learning_rate: 2e-4
   warmup_ratio: 0.03
   save_steps: 200
