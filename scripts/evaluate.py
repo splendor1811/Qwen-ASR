@@ -19,6 +19,7 @@ from src.config import load_config
 from src.data.utils import load_audio
 from src.evaluation.benchmarks import load_benchmark
 from src.evaluation.metrics import compute_wer, compute_cer
+from src.evaluation.normalize_vi import normalize_vietnamese
 from src.utils.logging import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -154,7 +155,11 @@ def main():
                 references.append(text)
                 hypotheses.append(prediction)
 
-            sample_details.append({"ref": text, "hyp": prediction})
+            sample_details.append({
+                "raw": prediction,
+                "ref": normalize_vietnamese(text),
+                "hyp": normalize_vietnamese(prediction),
+            })
             if text != prediction:
                 logger.info(f"[{bench_name}#{i}] REF: {text}")
                 logger.info(f"[{bench_name}#{i}] HYP: {prediction}")
