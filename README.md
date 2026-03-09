@@ -196,6 +196,7 @@ uv run huggingface-cli login --token $(grep HF_TOKEN .env | cut -d= -f2)
 | **GigaSpeech2-Vi** | ~2000h | `speechcolab/gigaspeech2` | Gated (needs approval) | Phase 1 backbone |
 | **FOSD** | ~100h | `doof-ferb/fpt_fosd` | Open | Additional data (train only) |
 | **PhoAudioBook** | ~1500h | `thivux/phoaudiobook` | Gated (needs agreement) | Audiobook domain |
+| **viVoice** | ~1017h | `capleaf/viVoice` | Gated (CC-BY-NC-SA-4.0) | Large-scale training |
 
 ### Start Small: Download VIVOS First
 
@@ -228,6 +229,21 @@ Each dataset processor:
 ## Step 4: Preprocess Data
 
 Preprocessing converts raw datasets into a unified JSONL format that our training pipeline expects.
+
+### Streaming & Subsets for Large Datasets
+
+Large datasets (GigaSpeech2, PhoAudioBook, VietBud500, VLSP, viVoice) use **HF streaming** — audio is streamed directly to `data/raw/` as WAV files with zero HF cache duplication. Use `--max_samples` to process a subset:
+
+```bash
+# Process only 500k samples of GigaSpeech2 (~500h)
+uv run python scripts/prepare_data.py --datasets gigaspeech2 --max_samples 500000
+
+# Full viVoice (all 887k samples)
+uv run python scripts/prepare_data.py --datasets vivoice
+
+# viVoice subset (~460h)
+uv run python scripts/prepare_data.py --datasets vivoice --max_samples 400000
+```
 
 ### Process VIVOS (quickest, do this first)
 
@@ -738,11 +754,13 @@ This codebase is designed for a progressive training approach. Each phase **cont
 
 | Dataset | Hours | HuggingFace Repo | Access |
 |---|---|---|---|
-| GigaSpeech2-Vi | ~2000h | `speechcolab/gigaspeech2` | Gated (needs approval) |
+| GigaSpeech2-Vi | ~2000h (subset via `--max_samples`) | `speechcolab/gigaspeech2` | Gated (needs approval) |
 | VietBud500 | ~500h | `linhtran92/viet_bud500` | Open |
 | VLSP2020 | ~100h | `doof-ferb/vlsp2020_vinai_100h` | Open |
+| PhoAudioBook | ~1500h | `thivux/phoaudiobook` | Gated (needs agreement) |
+| viVoice | ~1017h | `capleaf/viVoice` | Gated (CC-BY-NC-SA-4.0) |
 
-- **Total**: ~2600h
+- **Total**: ~5100h+ (use `--max_samples` for subsets)
 - **Duration**: ~72h on 1x A100-80GB | **Cost**: ~$125
 - **LR**: 2e-4, cosine decay | **LoRA**: rank=64, alpha=128
 - **Expected**: Initial loss ~8-9, WER should drop below 10% on VIVOS by end of training
@@ -753,7 +771,7 @@ This codebase is designed for a progressive training approach. Each phase **cont
 uv run python scripts/download_datasets.py --datasets gigaspeech2 vietbud500 vlsp
 
 # Process and merge into unified JSONL
-uv run python scripts/prepare_data.py --datasets gigaspeech2 vietbud500 vlsp --merge
+uv run python scripts/prepare_data.py --datasets gigaspeech2 vietbud500 vlsp phoaudiobook vivoice --max_samples 500000 --merge
 
 # Rename to match phase1 config paths
 cp data/processed/train.jsonl data/processed/phase1_train.jsonl
@@ -908,7 +926,8 @@ Qwen-ASR/
 │   │       ├── vietbud500.py          # VietBud500 (~500h)
 │   │       ├── vietsuperspeech.py     # VietSuperSpeech (~103h)
 │   │       ├── fosd.py                # FOSD (~100h)
-│   │       └── phoaudiobook.py        # PhoAudioBook (~1500h)
+│   │       ├── phoaudiobook.py        # PhoAudioBook (~1500h)
+│   │       └── vivoice.py             # viVoice (~1017h)
 │   ├── model/
 │   │   ├── loader.py                  # Load Qwen3-ASR model + processor
 │   │   ├── lora.py                    # Apply LoRA adapters

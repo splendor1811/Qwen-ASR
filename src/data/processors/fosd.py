@@ -23,7 +23,7 @@ class FOSDProcessor(BaseProcessor):
         load_dataset(self.hf_repo, split="train[:1]")
         logger.info("FOSD download initiated")
 
-    def process(self) -> dict[str, Path]:
+    def process(self, max_samples: int | None = None) -> dict[str, Path]:
         logger.info("Processing FOSD...")
         ds = load_dataset(self.hf_repo)
 

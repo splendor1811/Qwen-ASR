@@ -28,7 +28,7 @@ class VietSuperSpeechProcessor(BaseProcessor):
         snapshot_download(self.hf_repo, repo_type="dataset")
         logger.info("VietSuperSpeech downloaded successfully")
 
-    def process(self) -> dict[str, Path]:
+    def process(self, max_samples: int | None = None) -> dict[str, Path]:
         logger.info("Processing VietSuperSpeech...")
 
         # Get the snapshot directory

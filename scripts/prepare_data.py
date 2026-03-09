@@ -30,6 +30,12 @@ def parse_args():
     )
     parser.add_argument("--data_dir", type=str, default="data")
     parser.add_argument(
+        "--max_samples",
+        type=int,
+        default=None,
+        help="Max samples to process per dataset (for streaming subsets)",
+    )
+    parser.add_argument(
         "--merge",
         action="store_true",
         help="Merge all train/val splits into unified train.jsonl/val.jsonl",
@@ -78,7 +84,7 @@ def main():
         logger.info(f"Processing {name}...")
         try:
             processor = PROCESSOR_REGISTRY[name](data_dir=args.data_dir)
-            result = processor.process()
+            result = processor.process(max_samples=args.max_samples)
             logger.info(f"Successfully processed {name}: {list(result.keys())}")
             processed_datasets.append(name)
         except Exception as e:

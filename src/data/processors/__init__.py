@@ -7,6 +7,7 @@ from src.data.processors.vietbud500 import VietBud500Processor
 from src.data.processors.vietsuperspeech import VietSuperSpeechProcessor
 from src.data.processors.fosd import FOSDProcessor
 from src.data.processors.phoaudiobook import PhoAudioBookProcessor
+from src.data.processors.vivoice import ViVoiceProcessor
 
 PROCESSOR_REGISTRY: dict[str, type[BaseProcessor]] = {
     "vivos": VIVOSProcessor,
@@ -17,4 +18,5 @@ PROCESSOR_REGISTRY: dict[str, type[BaseProcessor]] = {
     "vietsuperspeech": VietSuperSpeechProcessor,
     "fosd": FOSDProcessor,
     "phoaudiobook": PhoAudioBookProcessor,
+    "vivoice": ViVoiceProcessor,
 }

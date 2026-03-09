@@ -34,7 +34,7 @@ class VIVOSProcessor(BaseProcessor):
         hf_hub_download(HF_REPO, "data/prompts-test.txt.gz", repo_type="dataset")
         logger.info("VIVOS downloaded successfully")
 
-    def process(self) -> dict[str, Path]:
+    def process(self, max_samples: int | None = None) -> dict[str, Path]:
         logger.info("Processing VIVOS dataset...")
 
         # Resolve cached file paths

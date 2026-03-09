@@ -23,6 +23,7 @@ Vietnamese ASR finetuning of Qwen3-ASR-1.7B using LoRA. Targets VLSP/FLEURS/VIVO
 - Evaluate: `uv run python scripts/evaluate.py --config configs/base.yaml --checkpoint <path>`
 - Inference: `uv run python scripts/inference.py --checkpoint <path> --audio <file>`
 - Prepare data: `uv run python scripts/prepare_data.py --datasets vivos`
+- Prepare subset: `uv run python scripts/prepare_data.py --datasets gigaspeech2 --max_samples 500000`
 - Merge LoRA: `uv run python scripts/merge_lora.py --checkpoint <path> --output <dir>`
 - Tests: `uv run pytest tests/ -v`
 
@@ -35,6 +36,8 @@ Vietnamese ASR finetuning of Qwen3-ASR-1.7B using LoRA. Targets VLSP/FLEURS/VIVO
 - datasets v4.x dropped `trust_remote_code` and loading scripts
 - VIVOS/FLEURS: use `huggingface_hub.hf_hub_download()` for manual download (no `load_dataset`)
 - VietSuperSpeech: uses `snapshot_download` (audio is separate from JSON metadata)
+- viVoice: `capleaf/viVoice`, gated (CC-BY-NC-SA-4.0), 887k samples, 1017h, train-only, 24kHz→16kHz via librosa
+- Large datasets (GigaSpeech2, PhoAudioBook, VietBud500, VLSP, viVoice) use `load_dataset(..., streaming=True)` to avoid HF cache duplication
 - Correct HF repo IDs: FOSD=`doof-ferb/fpt_fosd`, PhoAudioBook=`thivux/phoaudiobook`
 - Common Voice removed (empty on HF, moved to Mozilla Data Collective)
 - GigaSpeech2 default split: `train_refined` (not `train`)

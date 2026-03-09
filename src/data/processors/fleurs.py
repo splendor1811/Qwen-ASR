@@ -40,7 +40,7 @@ class FLEURSProcessor(BaseProcessor):
             )
         logger.info("FLEURS Vietnamese downloaded successfully")
 
-    def process(self) -> dict[str, Path]:
+    def process(self, max_samples: int | None = None) -> dict[str, Path]:
         logger.info("Processing FLEURS Vietnamese dataset...")
 
         results = {}
