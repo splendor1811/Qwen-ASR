@@ -9,12 +9,15 @@ End-to-end guide for finetuning Qwen3-ASR-1.7B on the VIVOS Vietnamese speech da
 ## Prerequisites
 
 ```bash
-# Install dependencies (GPU machine)
+# Install dependencies (GPU machine) — flash-attn uses prebuilt wheel (~30s, not ~45min build)
 uv sync --extra train
 
 # Verify installation
 uv run python -c "from qwen_asr import Qwen3ASRModel; print('OK')"
+uv run python -c "import flash_attn; print(f'flash-attn {flash_attn.__version__}')"
 ```
+
+> **Note**: The prebuilt flash-attn wheel in `pyproject.toml` is configured for the default RunPod template (CUDA 12.4 + PyTorch 2.5 + Python 3.11). If your environment differs, update the URL in `[tool.uv.sources]` — find your wheel at https://mjunya.com/flash-attention-prebuild-wheels/.
 
 ## Step 1: Download and Prepare VIVOS Data
 

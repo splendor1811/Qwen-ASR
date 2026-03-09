@@ -13,6 +13,9 @@ Vietnamese ASR finetuning of Qwen3-ASR-1.7B using LoRA. Targets VLSP/FLEURS/VIVO
 - Uses `uv` for Python environment management
 - Install: `uv sync --extra dev` (dev) or `uv sync --extra train` (GPU training)
 - All commands run via `uv run` or `make`
+- flash-attn uses prebuilt wheel via `[tool.uv.sources]` (avoids 30-60min CUDA build on rented GPUs)
+- Prebuilt wheel configured for: CUDA 12.4 + PyTorch 2.5 + Python 3.11 (RunPod default)
+- To change wheel: find URL at https://mjunya.com/flash-attention-prebuild-wheels/ and update `[tool.uv.sources]` in pyproject.toml
 
 ## Commands
 - Train: `uv run python scripts/train.py --config configs/base.yaml`

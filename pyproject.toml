@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "qwen-asr>=0.0.6",
-    "torch>=2.4",
+    "torch>=2.5",
     "transformers>=4.57",
     "peft>=0.15",
     "accelerate>=1.0",
@@ -47,5 +47,9 @@ select = ["E", "F", "I", "W"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.uv.extra-build-dependencies]
-flash-attn = ["torch"]
+# Use prebuilt flash-attn wheel to avoid 30-60min CUDA compilation on rented GPUs.
+# Wheel from: https://github.com/mjun0812/flash-attention-prebuild-wheels
+# Matches: CUDA 12.4 + PyTorch 2.5 + Python 3.11 + Linux x86_64 (RunPod default)
+# To change for a different env, find your wheel at: https://mjunya.com/flash-attention-prebuild-wheels/
+[tool.uv.sources]
+flash-attn = { url = "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.5.4/flash_attn-2.8.3+cu124torch2.5-cp311-cp311-linux_x86_64.whl" }

@@ -469,14 +469,12 @@ source $HOME/.cargo/env  # or restart shell
 # Install system deps
 apt-get update && apt-get install -y ffmpeg libsndfile1
 
-# Install Python dependencies + flash-attn
-export FLASH_ATTN_CUDA_ARCHS="120" # Help faster building flash-attn
+# Install Python dependencies + flash-attn (uses prebuilt wheel, ~30s instead of ~45min)
 cd /workspace/Qwen-ASR
-MAX_JOBS=4 uv sync --extra train
-
-# Install Flash Attention (critical for performance)
-uv run pip install flash-attn --no-build-isolation
+uv sync --extra train
 ```
+
+> **Note on flash-attn**: The `pyproject.toml` is configured to download a prebuilt flash-attn wheel matching the default RunPod template (CUDA 12.4 + PyTorch 2.5 + Python 3.11). This avoids the 30-60 minute CUDA compilation that costs real money on rented GPUs. If your environment differs, find the right wheel at https://mjunya.com/flash-attention-prebuild-wheels/ and update the URL in `[tool.uv.sources]`.
 
 Set up your environment:
 
@@ -902,6 +900,8 @@ model:
   attn_implementation: "eager"
 ```
 
+If you're on a GPU machine but flash-attn failed to install, check that the prebuilt wheel in `[tool.uv.sources]` matches your environment (CUDA version, PyTorch version, Python version). Find the right wheel at https://mjunya.com/flash-attention-prebuild-wheels/.
+
 ### "CUDA out of memory"
 
 Reduce memory usage (try in this order):
@@ -927,7 +927,7 @@ uv run python scripts/prepare_data.py --datasets vivos --merge
 ### Training is extremely slow
 
 - Verify GPU is being used: `nvidia-smi` should show GPU utilization
-- Install Flash Attention: `uv run pip install flash-attn --no-build-isolation`
+- Ensure flash-attn is installed: `uv sync --extra train` (uses prebuilt wheel)
 - Ensure `bf16: true` (not `float32`)
 - Check `dataloader_num_workers: 4` (not 0)
 
