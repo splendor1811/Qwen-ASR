@@ -7,7 +7,7 @@ name = "qwen-asr-vi"
 version = "0.1.0"
 description = "Vietnamese ASR finetuning for Qwen3-ASR"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13"
 dependencies = [
     "qwen-asr>=0.0.6",
     "torch>=2.5,<2.6",  # pinned to 2.5.x to match prebuilt flash-attn wheel ABI
