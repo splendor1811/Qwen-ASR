@@ -22,10 +22,19 @@ def load_benchmark(name: str, data_dir: str = "data") -> list[dict]:
         "vlsp2020": _load_vlsp2020_test,
     }
 
-    if name not in loaders:
-        raise ValueError(f"Unknown benchmark: {name}. Available: {list(loaders.keys())}")
+    if name in loaders:
+        return loaders[name](data_dir)
 
-    return loaders[name](data_dir)
+    # Fall back to loading from {name}_test.jsonl (works for any dataset processed by prepare_data.py)
+    jsonl_path = Path(data_dir) / "processed" / f"{name}_test.jsonl"
+    if jsonl_path.exists():
+        logger.info(f"Loading benchmark '{name}' from {jsonl_path}")
+        return _load_from_jsonl(jsonl_path)
+
+    raise ValueError(
+        f"Unknown benchmark: {name}. No loader registered and "
+        f"{jsonl_path} not found. Run 'uv run python scripts/prepare_data.py --datasets {name}' first."
+    )
 
 
 def _load_vivos_test(data_dir: str) -> list[dict]:
