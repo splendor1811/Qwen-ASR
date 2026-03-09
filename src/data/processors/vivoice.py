@@ -11,9 +11,8 @@ from pathlib import Path
 
 import librosa
 from datasets import load_dataset
-import soundfile as sf
 
-from src.data.processors.base import BaseProcessor, StreamingJsonlWriter
+from src.data.processors.base import BaseProcessor, ParallelWavWriter, StreamingJsonlWriter, find_resume_idx
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +40,13 @@ class ViVoiceProcessor(BaseProcessor):
         audio_dir.mkdir(parents=True, exist_ok=True)
         output_path = self.processed_dir / "vivoice_train.jsonl"
 
-        with StreamingJsonlWriter(output_path) as writer:
-            for idx, sample in enumerate(ds):
+        resume_idx = find_resume_idx(audio_dir, "vivoice_")
+        if resume_idx > 0:
+            logger.info(f"Resuming from stream index {resume_idx}")
+            ds = ds.skip(resume_idx)
+
+        with StreamingJsonlWriter(output_path) as writer, ParallelWavWriter() as wav_writer:
+            for idx, sample in enumerate(ds, start=resume_idx):
                 if max_samples and idx >= max_samples:
                     break
 
@@ -57,7 +61,7 @@ class ViVoiceProcessor(BaseProcessor):
                     target_sr=16000,
                 )
                 audio_path = audio_dir / f"vivoice_{idx:08d}.wav"
-                sf.write(str(audio_path), audio_array, 16000)
+                wav_writer.submit(audio_path, audio_array, 16000)
 
                 writer.write({
                     "audio": str(audio_path.resolve()),

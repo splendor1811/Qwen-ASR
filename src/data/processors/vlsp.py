@@ -9,9 +9,8 @@ import logging
 from pathlib import Path
 
 from datasets import get_dataset_split_names, load_dataset
-import soundfile as sf
 
-from src.data.processors.base import BaseProcessor, StreamingJsonlWriter
+from src.data.processors.base import BaseProcessor, ParallelWavWriter, StreamingJsonlWriter, find_resume_idx
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +41,15 @@ class VLSPProcessor(BaseProcessor):
             output_name = "train" if "train" in split else split
             output_path = self.processed_dir / f"vlsp_{output_name}.jsonl"
 
-            with StreamingJsonlWriter(output_path) as writer:
-                for idx, sample in enumerate(ds):
+            resume_idx = find_resume_idx(audio_dir, f"vlsp_{split}_")
+            if resume_idx > 0:
+                logger.info(f"Resuming {split} from stream index {resume_idx}")
+                ds_split = ds.skip(resume_idx)
+            else:
+                ds_split = ds
+
+            with StreamingJsonlWriter(output_path) as writer, ParallelWavWriter() as wav_writer:
+                for idx, sample in enumerate(ds_split, start=resume_idx):
                     if max_samples and idx >= max_samples:
                         break
 
@@ -56,7 +62,7 @@ class VLSPProcessor(BaseProcessor):
                     audio_array = audio_data["array"]
                     sr = audio_data["sampling_rate"]
                     audio_path = audio_dir / f"vlsp_{split}_{idx:06d}.wav"
-                    sf.write(str(audio_path), audio_array, sr)
+                    wav_writer.submit(audio_path, audio_array, sr)
 
                     writer.write({
                         "audio": str(audio_path.resolve()),

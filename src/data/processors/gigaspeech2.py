@@ -9,9 +9,8 @@ import logging
 from pathlib import Path
 
 from datasets import load_dataset
-import soundfile as sf
 
-from src.data.processors.base import BaseProcessor, StreamingJsonlWriter
+from src.data.processors.base import BaseProcessor, ParallelWavWriter, StreamingJsonlWriter, find_resume_idx
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +37,13 @@ class GigaSpeech2Processor(BaseProcessor):
         audio_dir.mkdir(parents=True, exist_ok=True)
         output_path = self.processed_dir / "gigaspeech2_train.jsonl"
 
-        with StreamingJsonlWriter(output_path) as writer:
-            for idx, sample in enumerate(ds):
+        resume_idx = find_resume_idx(audio_dir, "gs2_")
+        if resume_idx > 0:
+            logger.info(f"Resuming from stream index {resume_idx}")
+            ds = ds.skip(resume_idx)
+
+        with StreamingJsonlWriter(output_path) as writer, ParallelWavWriter() as wav_writer:
+            for idx, sample in enumerate(ds, start=resume_idx):
                 if max_samples and idx >= max_samples:
                     break
 
@@ -52,7 +56,7 @@ class GigaSpeech2Processor(BaseProcessor):
                 audio_array = audio_data["array"]
                 sr = audio_data["sampling_rate"]
                 audio_path = audio_dir / f"gs2_{idx:08d}.wav"
-                sf.write(str(audio_path), audio_array, sr)
+                wav_writer.submit(audio_path, audio_array, sr)
 
                 writer.write({
                     "audio": str(audio_path.resolve()),
