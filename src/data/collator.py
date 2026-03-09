@@ -17,6 +17,7 @@ from typing import Any
 import torch
 
 from src.data.utils import load_audio
+from src.evaluation.normalize_vi import normalize_vietnamese
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class DataCollatorForQwen3ASRFinetune:
     sample_rate: int = 16000
     max_text_length: int = 512
     language_prefix: str = "Vietnamese"
+    normalize_text: bool = True
 
     def __call__(self, features: list[dict]) -> dict[str, torch.Tensor]:
         batch_input_ids = []
@@ -71,6 +73,10 @@ class DataCollatorForQwen3ASRFinetune:
 
             # Tokenize the prefix (chat template)
             prefix_tokens = tokenizer.encode(ASR_CHAT_TEMPLATE, add_special_tokens=False)
+
+            # Normalize text to match eval normalization (lowercase, remove punctuation)
+            if self.normalize_text:
+                text = normalize_vietnamese(text)
 
             # Add Qwen3-ASR language prefix: "language Vietnamese<asr_text>..."
             target_text = f"language {self.language_prefix}<asr_text>{text}"

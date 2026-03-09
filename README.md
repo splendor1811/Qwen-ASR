@@ -94,6 +94,13 @@ The key insight: the chat prefix tokens (system prompt + audio placeholder) are 
 - Configurable via `data.language_prefix` in your config YAML (default: `"Vietnamese"`)
 - Set to `"None"` if you don't have language info (model won't learn language detection)
 
+**Text normalization** (added after VIVOS experiment):
+- The collator automatically normalizes training labels: Unicode NFC → lowercase → remove punctuation → collapse spaces
+- This uses the same `normalize_vietnamese()` function as evaluation, ensuring train/eval consistency
+- Critical because datasets have inconsistent casing (VIVOS=UPPERCASE, others=mixed)
+- Configurable via `data.normalize_text` in config YAML (default: `true`)
+- Raw JSONL data is NOT modified — normalization happens at training time only
+
 ---
 
 ## Prerequisites
@@ -723,42 +730,68 @@ print(results[0].text)
 
 ## 3-Phase Training Strategy
 
-This codebase is designed for a progressive training approach:
+This codebase is designed for a progressive training approach. Each phase **continues from the previous phase's best checkpoint** via `--resume_from_checkpoint`. Text normalization is automatic in the collator (controlled by `data.normalize_text`, default `true`).
 
 ### Phase 1: Large-Scale SFT (config: `phase1_large_sft.yaml`)
 
 **Goal**: Teach the model Vietnamese speech patterns at scale.
 
-- **Data**: GigaSpeech2-Vi (2000h) + VietBud500 (500h) + VLSP2020 (100h) = ~2600h
-- **Duration**: ~72h on 1x A100-80GB
-- **Cost**: ~$125
-- **LR**: 2e-4, cosine decay
-- **LoRA**: rank=64, alpha=128
+| Dataset | Hours | HuggingFace Repo | Access |
+|---|---|---|---|
+| GigaSpeech2-Vi | ~2000h | `speechcolab/gigaspeech2` | Gated (needs approval) |
+| VietBud500 | ~500h | `linhtran92/viet_bud500` | Open |
+| VLSP2020 | ~100h | `doof-ferb/vlsp2020_vinai_100h` | Open |
 
+- **Total**: ~2600h
+- **Duration**: ~72h on 1x A100-80GB | **Cost**: ~$125
+- **LR**: 2e-4, cosine decay | **LoRA**: rank=64, alpha=128
+- **Expected**: Initial loss ~8-9, WER should drop below 10% on VIVOS by end of training
+
+**Data preparation:**
 ```bash
-uv run python scripts/prepare_data.py --datasets gigaspeech2 vietbud500 vlsp --merge
-cp data/processed/train.jsonl data/processed/phase1_train.jsonl
-# Create a small val set (take 1000 random samples)
-shuf data/processed/phase1_train.jsonl | head -1000 > data/processed/phase1_val.jsonl
+# Download datasets (do this on the cloud machine for speed)
+uv run python scripts/download_datasets.py --datasets gigaspeech2 vietbud500 vlsp
 
+# Process and merge into unified JSONL
+uv run python scripts/prepare_data.py --datasets gigaspeech2 vietbud500 vlsp --merge
+
+# Rename to match phase1 config paths
+cp data/processed/train.jsonl data/processed/phase1_train.jsonl
+
+# Create a validation set (sample 1000 from train, or use VIVOS test)
+shuf data/processed/phase1_train.jsonl | head -1000 > data/processed/phase1_val.jsonl
+```
+
+**Start training:**
+```bash
 uv run python scripts/train.py --config configs/phase1_large_sft.yaml
 ```
 
 ### Phase 2: Domain Adaptation (config: `phase2_domain_adapt.yaml`)
 
-**Goal**: Adapt to specific Vietnamese speech domains (conversational, read speech).
+**Goal**: Adapt to specific Vietnamese speech domains (conversational, read speech). **Continues from Phase 1 checkpoint** — the lower LR (5e-5 vs 2e-4) refines without forgetting Phase 1 knowledge.
 
-- **Data**: VietSuperSpeech (103h) + VIVOS (15h) + FLEURS (12h) = ~130h
-- **Duration**: ~12h
-- **Cost**: ~$21
-- **LR**: 5e-5 (lower, to refine without forgetting)
+| Dataset | Hours | HuggingFace Repo | Access |
+|---|---|---|---|
+| VietSuperSpeech | ~103h | `thanhnew2001/VietSuperSpeech` | Open |
+| VIVOS | ~15h | `AILAB-VNUHCM/vivos` | Open |
+| FLEURS-Vi | ~12h | `google/fleurs` (vi_vn) | Open |
+
+- **Total**: ~130h
+- **Duration**: ~12h | **Cost**: ~$21
+- **LR**: 5e-5 (lower, to refine without forgetting Phase 1)
 - **Start from**: Best Phase 1 checkpoint
 
+**Data preparation:**
 ```bash
+uv run python scripts/download_datasets.py --datasets vietsuperspeech vivos fleurs
 uv run python scripts/prepare_data.py --datasets vietsuperspeech vivos fleurs --merge
 cp data/processed/train.jsonl data/processed/phase2_train.jsonl
 cp data/processed/val.jsonl data/processed/phase2_val.jsonl
+```
 
+**Start training (resume from Phase 1):**
+```bash
 uv run python scripts/train.py --config configs/phase2_domain_adapt.yaml \
   --resume_from_checkpoint outputs/phase1_large_sft/checkpoint-BEST
 ```
@@ -778,15 +811,25 @@ uv run python scripts/train.py --config configs/phase3_competition.yaml \
   --resume_from_checkpoint outputs/phase2_domain_adapt/checkpoint-BEST
 ```
 
+### VIVOS Smoke Test (config: `finetune_vivos.yaml`)
+
+For quick pipeline validation on a single small dataset:
+
+```bash
+uv run python scripts/train.py --config configs/finetune_vivos.yaml
+```
+
+Uses conservative hyperparameters (batch=4, grad_accum=4, LR=5e-5, 10 epochs) to avoid the WER degradation seen with aggressive settings.
+
 ### Recommended Order
 
 ```
 Beginner path (quick results):
-  VIVOS only (15h) -> base.yaml -> evaluate
+  VIVOS only (15h) -> finetune_vivos.yaml -> evaluate
   Total: ~1h, ~$2
 
 Full pipeline:
-  Phase 1 (2600h) -> Phase 2 (310h) -> Phase 3 (curated) -> evaluate all benchmarks
+  Phase 1 (2600h) -> Phase 2 (130h) -> Phase 3 (curated) -> evaluate all benchmarks
   Total: ~90h, ~$160
 ```
 
@@ -812,6 +855,7 @@ Full pipeline:
 | `data` | `max_audio_duration` | `30.0` | Max audio length in seconds |
 | `data` | `sample_rate` | `16000` | Audio sample rate (always 16kHz) |
 | `data` | `language_prefix` | `Vietnamese` | Language tag for Qwen3-ASR (`Vietnamese`, `None`, etc.) |
+| `data` | `normalize_text` | `true` | Normalize training text (lowercase, remove punctuation). Must match eval normalization. |
 | `training` | `per_device_train_batch_size` | `1` | Batch size per GPU |
 | `training` | `gradient_accumulation_steps` | `16` | Effective batch = this * batch_size * n_gpus |
 | `training` | `learning_rate` | `2e-4` | Peak learning rate |

@@ -51,6 +51,7 @@ class DataConfig:
     max_text_length: int = 512
     num_workers: int = 4
     language_prefix: str = "Vietnamese"
+    normalize_text: bool = True
 
 
 @dataclass

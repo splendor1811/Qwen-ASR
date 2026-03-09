@@ -4,6 +4,7 @@ data:
   train_jsonl: "data/processed/phase1_train.jsonl"
   val_jsonl: "data/processed/phase1_val.jsonl"
   max_audio_duration: 30.0
+  normalize_text: true
 
 training:
   output_dir: "outputs/phase1_large_sft"
@@ -12,9 +13,9 @@ training:
   gradient_accumulation_steps: 32
   learning_rate: 2e-4
   warmup_ratio: 0.03
-  save_steps: 1000
-  eval_steps: 1000
-  save_total_limit: 3
+  save_steps: 500
+  eval_steps: 500
+  save_total_limit: 5
   deepspeed: "src/training/deepspeed_configs/zero2.json"
 
 lora:

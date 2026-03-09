@@ -123,6 +123,7 @@ def main():
         sample_rate=config.data.sample_rate,
         max_text_length=config.data.max_text_length,
         language_prefix=config.data.language_prefix,
+        normalize_text=config.data.normalize_text,
     )
 
     # Set up W&B

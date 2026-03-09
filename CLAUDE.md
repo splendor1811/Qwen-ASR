@@ -46,3 +46,20 @@ Vietnamese ASR finetuning of Qwen3-ASR-1.7B using LoRA. Targets VLSP/FLEURS/VIVO
 - Labels: chat template masked with -100; language prefix + transcription are supervised
 - Configurable via `data.language_prefix` in YAML (default: `"Vietnamese"`, use `"None"` to skip language detection)
 - ZeRO-2 (not ZeRO-3) with LoRA
+
+## Text Normalization
+- Collator normalizes training labels via `normalize_vietnamese()` from `src/evaluation/normalize_vi.py`
+- Normalization: Unicode NFC → lowercase → remove punctuation → collapse whitespace
+- Same function used in training AND evaluation (ensures consistency)
+- Configurable via `data.normalize_text` in YAML config (default: `true`)
+- VIVOS uses UPPERCASE labels; other datasets have mixed case — normalization resolves this
+- Raw JSONL data stays untouched; normalization applied at collator time only
+
+## Training Strategy
+- Phase 1 (Large SFT): GigaSpeech2-Vi (2000h) + VietBud500 (500h) + VLSP2020 (100h), LR=2e-4
+- Phase 2 (Domain Adapt): VietSuperSpeech (103h) + VIVOS (15h) + FLEURS (12h), LR=5e-5, resume from Phase 1
+- Phase 3 (Competition): Curated subset, LR=1e-5, resume from Phase 2
+- Each phase resumes from previous best checkpoint via `--resume_from_checkpoint`
+- VIVOS smoke test config: `configs/finetune_vivos.yaml` (batch=4, grad_accum=4, LR=5e-5, 10 epochs)
+- Effective batch size = per_device_batch * gradient_accumulation_steps * n_gpus
+- eval_steps must be small enough to actually evaluate during training (not larger than total steps)

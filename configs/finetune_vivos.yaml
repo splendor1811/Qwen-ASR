@@ -6,15 +6,21 @@ data:
 
 training:
   output_dir: "outputs/finetune_vivos"
-  per_device_train_batch_size: 64
-  per_device_eval_batch_size: 32
-  num_train_epochs: 5
-  save_steps: 100
-  eval_steps: 100
-  save_total_limit: 3
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4    # effective batch = 16
+  num_train_epochs: 10              # small dataset, more epochs
+  learning_rate: 5e-5               # conservative for 15h
+  warmup_ratio: 0.05
+  logging_steps: 5
+  save_steps: 50
+  eval_steps: 50                    # ~14 evals per epoch
+  eval_strategy: "steps"
+  save_total_limit: 5
+  load_best_model_at_end: true
 
 wandb:
-  name: "finetune-vivos-A40"
+  name: "finetune-vivos"
   tags:
     - "qwen3-asr"
     - "vietnamese"

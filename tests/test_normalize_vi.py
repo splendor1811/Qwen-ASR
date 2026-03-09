@@ -50,3 +50,7 @@ def test_mixed_punctuation():
 
 def test_underscore_removal():
     assert normalize_vietnamese("hello_world") == "hello world"
+
+
+def test_uppercase_vietnamese():
+    assert normalize_vietnamese("KHÁCH SẠN NHÀ HÀNG") == "khách sạn nhà hàng"
