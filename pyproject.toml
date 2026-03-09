@@ -22,6 +22,7 @@ dependencies = [
     "soundfile",
     "pyyaml",
     "setuptools>=82.0.0",
+    "mpi4py>=4.1.1",
 ]
 
 [project.optional-dependencies]

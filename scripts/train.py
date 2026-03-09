@@ -74,8 +74,19 @@ def build_compute_metrics(processor):
     return compute_metrics_fn
 
 
+def _ensure_distributed_env():
+    """Set env vars for single-GPU DeepSpeed when launched via plain `python` (no torchrun/deepspeed launcher)."""
+    if "RANK" not in os.environ:
+        os.environ.setdefault("RANK", "0")
+        os.environ.setdefault("LOCAL_RANK", "0")
+        os.environ.setdefault("WORLD_SIZE", "1")
+        os.environ.setdefault("MASTER_ADDR", "127.0.0.1")
+        os.environ.setdefault("MASTER_PORT", "29500")
+
+
 def main():
     args = parse_args()
+    _ensure_distributed_env()
     setup_logging()
 
     logger.info(f"Loading config from {args.config}")
